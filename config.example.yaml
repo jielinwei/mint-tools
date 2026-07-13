@@ -1,0 +1,6 @@
+source_dir: D:\\MINT_source_data
+output_dir: D:\\mint-tools
+log_level: INFO
+dicom_read:
+  stop_before_pixels: true
+  force: true
