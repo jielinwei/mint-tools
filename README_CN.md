@@ -27,6 +27,7 @@
 - 原始数据目录只读
 - 输出写入本地 `outputs/` 和 `logs/`
 - 建议先 `--dry-run`，再正式运行
+- 如需按人工整理的文件夹知识库筛选，可使用 `--knowledge-xlsx` 和 `--knowledge-sheet`
 
 ## Windows 运行
 
@@ -39,6 +40,15 @@
 ```powershell
 .\run_audit_windows.ps1 -SourceDir "D:\raw_data" -OutputDir "."
 ```
+
+## 按 Excel 知识库筛选
+
+```powershell
+python scripts\audit_mint_rt_dicom.py --source-dir "D:\raw_data" --output-dir . --dry-run --knowledge-xlsx "D:\mint-tools\folder_structure3_categeried2026_RT_RT232_matched2.xlsx" --knowledge-sheet "RT243-3012-final"
+python scripts\analyze_mint_folder_patterns.py --source-dir "D:\raw_data" --output-dir outputs --dry-run --knowledge-xlsx "D:\mint-tools\folder_structure3_categeried2026_RT_RT232_matched2.xlsx" --knowledge-sheet "RT243-3012-final"
+```
+
+筛选规则：只保留原始数据路径中 `<ID>/<Date>/...` 与 Excel 指定 sheet 中 `ID`、`Date` 组合匹配的文件。这里的 `Date` 是第二层检查文件夹完整名称，例如 `20130710-RTLUNG_MAMMA-CUR-BST`。
 
 ## 注意
 

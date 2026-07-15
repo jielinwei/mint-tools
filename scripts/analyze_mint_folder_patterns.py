@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from mint_knowledge_filter import load_folder_knowledge_filter
 from rank_planning_ct_candidates import (
     build_ct_series,
     build_inventory_rows,
@@ -26,6 +27,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--source-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--knowledge-xlsx",
+        type=Path,
+        default=None,
+        help="Optional Excel knowledge table used to keep only listed ID-Date folders",
+    )
+    parser.add_argument(
+        "--knowledge-sheet",
+        default="RT243-3012-final",
+        help="Sheet name for --knowledge-xlsx",
+    )
     return parser.parse_args()
 
 
@@ -36,7 +48,8 @@ def main() -> int:
     output_dir = args.output_dir.expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    records = scan_source(source_dir)
+    folder_filter = load_folder_knowledge_filter(args.knowledge_xlsx, args.knowledge_sheet)
+    records = scan_source(source_dir, folder_filter)
     ct_series = build_ct_series(records)
     courses, patient_course_counts = group_rt_courses(records)
     inventory_rows = build_inventory_rows(ct_series, courses)

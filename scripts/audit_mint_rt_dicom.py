@@ -20,6 +20,8 @@ from pydicom.dataset import Dataset
 from pydicom.errors import InvalidDicomError
 from pydicom.uid import UID
 
+from mint_knowledge_filter import load_folder_knowledge_filter
+
 
 LOGGER = logging.getLogger("audit_mint_rt_dicom")
 
@@ -225,6 +227,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true", help="Scan only and print summary")
     parser.add_argument("--max-patients", type=int, default=None, help="Limit number of PatientIDs")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing output files")
+    parser.add_argument(
+        "--knowledge-xlsx",
+        type=Path,
+        default=None,
+        help="Optional Excel knowledge table used to keep only listed ID-Date folders",
+    )
+    parser.add_argument(
+        "--knowledge-sheet",
+        default=None,
+        help="Sheet name for --knowledge-xlsx; default comes from config or RT243-3012-final",
+    )
     return parser.parse_args()
 
 
@@ -815,9 +828,37 @@ def main() -> int:
     if not source_dir.exists():
         raise FileNotFoundError(f"Source directory not found: {source_dir}")
 
+    knowledge_xlsx = args.knowledge_xlsx or (
+        Path(config["knowledge_xlsx"]) if config.get("knowledge_xlsx") else None
+    )
+    knowledge_sheet = args.knowledge_sheet or safe_str(
+        config.get("knowledge_sheet", "RT243-3012-final")
+    )
+    folder_filter = load_folder_knowledge_filter(knowledge_xlsx, knowledge_sheet)
+    if folder_filter is not None:
+        LOGGER.info(
+            "Loaded folder knowledge filter: %s sheet=%s rows=%d allowed_pairs=%d",
+            folder_filter.source_path,
+            folder_filter.sheet_name,
+            folder_filter.n_rows,
+            len(folder_filter.pairs),
+        )
+
     LOGGER.info("Scanning source directory: %s", source_dir)
     all_files = list_all_files(source_dir)
     LOGGER.info("Found %d total files under source directory", len(all_files))
+    if folder_filter is not None:
+        before_filter = len(all_files)
+        all_files = [
+            path
+            for path in all_files
+            if folder_filter.matches_relative_path(path.relative_to(source_dir))
+        ]
+        LOGGER.info(
+            "Knowledge filter kept %d/%d files in listed ID-Date folders",
+            len(all_files),
+            before_filter,
+        )
 
     records: list[DicomRecord] = []
     allowed_patients: set[str] | None = None

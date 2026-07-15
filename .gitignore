@@ -6,6 +6,7 @@ __pycache__/
 
 outputs/
 logs/
+*.xlsx
 
 .DS_Store
 Thumbs.db

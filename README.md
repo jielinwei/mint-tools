@@ -83,6 +83,15 @@ Folder-pattern full run:
 python scripts/analyze_mint_folder_patterns.py --source-dir "/path/to/raw_data" --output-dir outputs
 ```
 
+Knowledge-table filter:
+
+```bash
+python scripts/audit_mint_rt_dicom.py --source-dir "/path/to/raw_data" --output-dir . --dry-run --knowledge-xlsx "/path/to/folder_structure3_categeried2026_RT_RT232_matched2.xlsx" --knowledge-sheet "RT243-3012-final"
+python scripts/analyze_mint_folder_patterns.py --source-dir "/path/to/raw_data" --output-dir outputs --dry-run --knowledge-xlsx "/path/to/folder_structure3_categeried2026_RT_RT232_matched2.xlsx" --knowledge-sheet "RT243-3012-final"
+```
+
+The filter keeps only files under source folders matching an `ID` and `Date` pair in the selected Excel sheet. The expected source-folder pattern is `<ID>/<Date>/...`, where `Date` is the second-level examination folder, for example `20130710-RTLUNG_MAMMA-CUR-BST`.
+
 Optional controls:
 
 - `--max-patients N`

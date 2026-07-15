@@ -1,6 +1,8 @@
 source_dir: D:\\MINT_source_data
 output_dir: D:\\mint-tools
 log_level: INFO
+knowledge_xlsx: ""
+knowledge_sheet: RT243-3012-final
 dicom_read:
   stop_before_pixels: true
   force: true

@@ -18,6 +18,8 @@ import pydicom
 from pydicom.dataset import Dataset
 from pydicom.errors import InvalidDicomError
 
+from mint_knowledge_filter import FolderKnowledgeFilter, load_folder_knowledge_filter
+
 
 LOGGER = logging.getLogger("rank_planning_ct_candidates")
 
@@ -370,15 +372,31 @@ def read_dicom_file(path: Path, source_dir: Path) -> DicomFileRecord | None:
     return record
 
 
-def scan_source(source_dir: Path) -> list[DicomFileRecord]:
+def scan_source(
+    source_dir: Path,
+    folder_filter: FolderKnowledgeFilter | None = None,
+) -> list[DicomFileRecord]:
     """Recursively scan source directory for DICOM files."""
     records: list[DicomFileRecord] = []
+    total_files = 0
+    kept_files = 0
     for path in sorted(source_dir.rglob("*")):
         if not path.is_file():
             continue
+        total_files += 1
+        relative_path = path.relative_to(source_dir)
+        if folder_filter is not None and not folder_filter.matches_relative_path(relative_path):
+            continue
+        kept_files += 1
         record = read_dicom_file(path, source_dir)
         if record is not None:
             records.append(record)
+    if folder_filter is not None:
+        LOGGER.info(
+            "Knowledge filter kept %d/%d files in listed ID-Date folders",
+            kept_files,
+            total_files,
+        )
     return records
 
 
@@ -1052,6 +1070,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--source-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--knowledge-xlsx",
+        type=Path,
+        default=None,
+        help="Optional Excel knowledge table used to keep only listed ID-Date folders",
+    )
+    parser.add_argument(
+        "--knowledge-sheet",
+        default="RT243-3012-final",
+        help="Sheet name for --knowledge-xlsx",
+    )
     return parser.parse_args()
 
 
@@ -1062,7 +1091,17 @@ def main() -> int:
     output_dir = args.output_dir.expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    records = scan_source(source_dir)
+    folder_filter = load_folder_knowledge_filter(args.knowledge_xlsx, args.knowledge_sheet)
+    if folder_filter is not None:
+        LOGGER.info(
+            "Loaded folder knowledge filter: %s sheet=%s rows=%d allowed_pairs=%d",
+            folder_filter.source_path,
+            folder_filter.sheet_name,
+            folder_filter.n_rows,
+            len(folder_filter.pairs),
+        )
+
+    records = scan_source(source_dir, folder_filter)
     ct_series = build_ct_series(records)
     courses, patient_course_counts = group_rt_courses(records)
     inventory_rows = build_inventory_rows(ct_series, courses)
