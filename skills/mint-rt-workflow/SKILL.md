@@ -1,0 +1,164 @@
+---
+name: mint-rt-workflow
+description: Use for the MINT radiotherapy DICOM project when auditing CT/RT data, applying the Excel ID-Date knowledge filter, preparing manual review tables, resolving planning CT choices, exporting resolved planning CT DICOM series to NIfTI, or syncing the workflow between Mac and Windows. Emphasizes read-only raw data handling, concise human-review outputs, UID traceability, and avoiding duplicate/intermediate files.
+---
+
+# MINT RT Workflow
+
+## Core Rules
+
+- Treat raw MINT data as read-only. Do not modify, move, rename, delete, or copy raw DICOM files.
+- Write only to explicit output folders. Always dry-run batch operations first and list affected files.
+- Do not proceed to dose resampling, segmentation, radiomics, or delivered-dose inference unless explicitly requested.
+- Keep human review outputs small and clinically actionable. Prefer the minimum columns needed to decide the CT/RT match.
+- Preserve UIDs internally for traceability, but avoid unnecessary patient identifiers in shared outputs.
+- Do not leave failed converter outputs, duplicate NIfTI files, `_Eq_1` split volumes, or exploratory folders in final output locations.
+
+## Known Project Paths
+
+Mac source root:
+
+```text
+/Users/weijielinlin/Desktop/keyan/202409NCT/202410Project/MINT_wdir_Jielin
+```
+
+Mac code workspace:
+
+```text
+/Users/weijielinlin/Desktop/keyan/202409NCT/202410Project/MINT_cardiac_dose_analysis
+```
+
+Windows code workspace:
+
+```text
+C:\Users\j064i\Documents\0A_j064i\04co\mint_tools
+```
+
+Windows raw-data roots:
+
+```text
+\\ad\FS\OE0300-Projekte\Projects\HeartSegmentation\data\MINT_wdir_Jielin_raw\0-1
+\\ad\FS\OE0300-Projekte\Projects\HeartSegmentation\data\MINT_wdir_Jielin_raw\0-2
+```
+
+Windows planning CT output:
+
+```text
+\\ad\FS\OE0300-Projekte\Projects\HeartSegmentation\data\MINT_wdir_Jielin_raw\10mintRTall\00planningCT
+```
+
+## Audit Workflow
+
+1. Pull latest code and inspect status:
+
+```bash
+git pull
+git status --short --branch
+```
+
+2. Use the Excel knowledge table when filtering CT/RT folders:
+
+```text
+folder_structure3_categeried2026_RT_RT232_matched2.xlsx
+sheet: RT243-3012-final
+columns: ID, Date
+```
+
+The source-folder pattern is `<ID>/<Date>/...`; keep only files whose ID-Date pair exists in the sheet.
+
+3. Run audit and planning-CT candidate scripts with `--dry-run` first:
+
+```bash
+python scripts/audit_mint_rt_dicom.py --source-dir "/path/to/raw" --output-dir . --dry-run --knowledge-xlsx "/path/to/folder_structure3_categeried2026_RT_RT232_matched2.xlsx" --knowledge-sheet "RT243-3012-final"
+python scripts/analyze_mint_folder_patterns.py --source-dir "/path/to/raw" --output-dir outputs --dry-run --knowledge-xlsx "/path/to/folder_structure3_categeried2026_RT_RT232_matched2.xlsx" --knowledge-sheet "RT243-3012-final"
+```
+
+4. Manual review should focus on:
+
+- `patient_id`
+- `rt_course_id`
+- selected CT relative path
+- CT slice count
+- RTDOSE frame count
+- frame-of-reference match
+- warnings
+
+Avoid presenting large UID-heavy tables unless debugging traceability.
+
+## Planning CT Resolution
+
+The currently accepted resolved table is:
+
+```text
+outputs/mint_manual_review_final_planning_ct_resolved.csv
+```
+
+Important columns:
+
+- `patient_id`
+- `rt_course_id`
+- `final_ct_relative_path`
+- `final_ct_series_uid`
+- `final_number_of_ct_slices`
+- `review_status`
+- `resolution_basis`
+
+Rows can represent multiple RT courses for the same patient. For CT export, deduplicate by unique planning CT, not by RT course.
+
+## Planning CT NIfTI Export
+
+Use `scripts/export_planning_ct_nifti.py` after manual review is resolved.
+
+Always dry-run first:
+
+```bash
+python scripts/export_planning_ct_nifti.py --source-dir "/path/to/raw" --resolved-csv "outputs/mint_manual_review_final_planning_ct_resolved.csv" --output-dir "outputs/planningCT" --dry-run
+```
+
+Then run:
+
+```bash
+python scripts/export_planning_ct_nifti.py --source-dir "/path/to/raw" --resolved-csv "outputs/mint_manual_review_final_planning_ct_resolved.csv" --output-dir "outputs/planningCT"
+```
+
+Exporter behavior:
+
+- Output one final NIfTI per unique planning CT.
+- Filename pattern: `patientID_YYYYMMDD_planningCT.nii.gz`.
+- If `final_ct_series_uid` exists, aggregate all matching CT DICOM files across the whole patient folder. This is required because MINT may split one CT SeriesInstanceUID across multiple folders.
+- If `final_ct_series_uid` is missing, use only `final_ct_relative_path`.
+- Write `planningCT_export_qc.csv`.
+- Stop instead of overwriting unless `--overwrite` is explicitly passed.
+
+Prefer SimpleITK/GDCM export for this project. Do not use dcm2niix as the sole converter for these MINT planning CTs because JPEG2000 and split-series behavior produced failed or duplicated outputs in testing.
+
+## Output Hygiene
+
+Final planning CT output should contain only:
+
+- one `.nii.gz` per accepted planning CT
+- one QC CSV
+
+Before deleting exploratory outputs, perform a dry-run list. Delete only files generated by this workflow, never raw DICOM. Remove:
+
+- failed dcm2niix files
+- `_Eq_1` split volumes
+- temporary test directories such as `sitk_test10`
+- obsolete QC/log files tied to rejected converter attempts
+
+## GitHub Sync
+
+Repo:
+
+```text
+https://github.com/jielinwei/mint-tools
+```
+
+Commit only code, docs, config examples, and skills. Do not commit:
+
+- raw data
+- `outputs/`
+- `logs/`
+- local `config.yaml`
+- Excel knowledge workbooks
+- NIfTI exports
