@@ -14,17 +14,19 @@ Python tools for audit-only inspection of radiotherapy DICOM datasets, with emph
 
 Out of scope:
 
-- DICOM conversion
 - Segmentation
 - Dose resampling
 - Radiomics extraction
 - Any modification of raw source data
+
+DICOM conversion is intentionally excluded from the audit stage. After manual planning CT resolution, `scripts/export_planning_ct_nifti.py` can export the confirmed CT series to NIfTI without modifying raw DICOM files.
 
 ## Repository layout
 
 - `scripts/audit_mint_rt_dicom.py`: base RT DICOM audit
 - `scripts/analyze_mint_folder_patterns.py`: planning-CT pattern analysis
 - `scripts/rank_planning_ct_candidates.py`: candidate ranking logic
+- `scripts/export_planning_ct_nifti.py`: export resolved planning CT DICOM series to NIfTI
 - `config.example.yaml`: example configuration
 - `requirements.txt`: Python dependencies
 - `run_audit_windows.ps1`: Windows PowerShell entrypoint
@@ -83,6 +85,23 @@ Folder-pattern full run:
 python scripts/analyze_mint_folder_patterns.py --source-dir "/path/to/raw_data" --output-dir outputs
 ```
 
+Export resolved planning CT to NIfTI:
+
+```bash
+python scripts/export_planning_ct_nifti.py \
+  --source-dir "/path/to/raw_data" \
+  --resolved-csv "outputs/mint_manual_review_final_planning_ct_resolved.csv" \
+  --output-dir "outputs/planningCT" \
+  --dry-run
+
+python scripts/export_planning_ct_nifti.py \
+  --source-dir "/path/to/raw_data" \
+  --resolved-csv "outputs/mint_manual_review_final_planning_ct_resolved.csv" \
+  --output-dir "outputs/planningCT"
+```
+
+The exporter writes one file per unique planning CT using the name pattern `patientID_YYYYMMDD_planningCT.nii.gz`. When `final_ct_series_uid` is available, it aggregates all CT DICOM files with the same SeriesInstanceUID across the full patient folder, because some MINT CT series are split across multiple source folders.
+
 Knowledge-table filter:
 
 ```bash
@@ -110,4 +129,6 @@ Optional controls:
 - `outputs/mint_planning_ct_selection_qc.csv`
 - `outputs/mint_multiple_rt_course_cases.csv`
 - `outputs/mint_manual_review_cases.csv`
+- `outputs/planningCT/*_planningCT.nii.gz`
+- `outputs/planningCT/planningCT_export_qc.csv`
 - `logs/audit_mint_rt_dicom.log`

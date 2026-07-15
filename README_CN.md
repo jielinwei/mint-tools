@@ -21,6 +21,8 @@
   planning CT 文件夹模式分析
 - `scripts/rank_planning_ct_candidates.py`
   planning CT 候选排序
+- `scripts/export_planning_ct_nifti.py`
+  基于人工确认后的 resolved CSV 导出 planning CT NIfTI
 
 ## 使用原则
 
@@ -49,6 +51,17 @@ python scripts\analyze_mint_folder_patterns.py --source-dir "D:\raw_data" --outp
 ```
 
 筛选规则：只保留原始数据路径中 `<ID>/<Date>/...` 与 Excel 指定 sheet 中 `ID`、`Date` 组合匹配的文件。这里的 `Date` 是第二层检查文件夹完整名称，例如 `20130710-RTLUNG_MAMMA-CUR-BST`。
+
+## 导出 planning CT NIfTI
+
+人工确认 `mint_manual_review_final_planning_ct_resolved.csv` 后再运行：
+
+```powershell
+python scripts\export_planning_ct_nifti.py --source-dir "D:\raw_data" --resolved-csv "outputs\mint_manual_review_final_planning_ct_resolved.csv" --output-dir "outputs\planningCT" --dry-run
+python scripts\export_planning_ct_nifti.py --source-dir "D:\raw_data" --resolved-csv "outputs\mint_manual_review_final_planning_ct_resolved.csv" --output-dir "outputs\planningCT"
+```
+
+输出命名格式：`patientID_YYYYMMDD_planningCT.nii.gz`。如果 `final_ct_series_uid` 存在，脚本会在整个 patient 文件夹下聚合同一个 `SeriesInstanceUID` 的 CT DICOM，避免 MINT 中同一 CT series 被拆到多个文件夹时漏层。
 
 ## 注意
 
